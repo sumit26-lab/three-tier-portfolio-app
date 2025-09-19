@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Moon, Sun, Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 
 const navItems = [
   { name: "Home", href: "#hero" },
@@ -8,10 +9,12 @@ const navItems = [
   { name: "Experience", href: "#experience" },
   { name: "Projects", href: "#projects" },
   { name: "Skills", href: "#skills" },
+  { name: "Articles", href: "/articles" },
   { name: "Contact", href: "#contact" }
 ];
 
 export default function Navigation() {
+  const [, navigate] = useLocation();
   const [isDark, setIsDark] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -57,6 +60,9 @@ export default function Navigation() {
     
     if (href === '#hero') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (href.startsWith('/')) {
+      // Handle route navigation
+      navigate(href);
     } else {
       const element = document.querySelector(href);
       element?.scrollIntoView({ behavior: 'smooth' });
