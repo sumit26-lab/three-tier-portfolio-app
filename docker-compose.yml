@@ -30,16 +30,8 @@ services:
     container_name: projcet_portfolio-backend-1
     ports:
       - "5000:5000"
-    environment:
-      DB_HOST: db
-      DB_USER: root
-      DB_PASSWORD: admin_password
-      DB_NAME: news_db
-      JWT_SECRET: 'fuew96LOTNk73mGA+IaEsJJkvwMwrk6/y3rPOcrYYWU='
-      RESEND_API_KEY: 're_Q94hn9fi_Furc4Wt8NkA4DvXhAf9v6SJD'
-      CLOUDINARY_CLOUD_NAME: 'dlgko9l50'
-      CLOUDINARY_API_KEY: '929949819293529'
-      CLOUDINARY_API_SECRET: 'FMAwLnvt0oLkkCqM_88cqmbh4lY'
+    env_file:
+      - .env
     depends_on:
       db:
         condition: service_healthy
@@ -47,7 +39,7 @@ services:
   # --- FRONTEND (NEW) ---
   frontend:
     build: 
-      context: .client
+      context: ./client
       dockerfile: Dockerfile 
     container_name: portfolio-frontend
     ports:
