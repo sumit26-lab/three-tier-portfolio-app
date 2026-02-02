@@ -13,6 +13,7 @@ interface ExperienceItem {
 }
 
 const experienceData: ExperienceItem[] = [
+
   {
     title: "Assistant Professor",
     company: "Indore International Law College",

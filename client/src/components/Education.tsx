@@ -6,34 +6,29 @@ interface EducationItem {
   degree: string;
   institution: string;
   year: string;
-  grade: string;
+  
 }
 
 const educationData: EducationItem[] = [
   {
-    degree: "M.A. Economics",
+    degree: "MBA – Marketing & HR",
+    institution: "Devi Ahilya Vishwavidyalaya (DAVV)  ",
+    year: "2024-2026",
+    
+  },
+  {
+    degree: "M.A. Economics ",
     institution: "School of Economics, DAVV",
     year: "2021-2023",
-    grade: "70%"
+
   },
   {
-    degree: "B.Sc. Computer Science",
+    degree: "B.Sc. Computer Applications",
     institution: "Institute of Professional Studies, DAVV",
     year: "2018-2021",
-    grade: "68%"
+
   },
-  {
-    degree: "Senior Secondary Examination - Class XII",
-    institution: "Model H S School, Lakhnadon",
-    year: "2016-2017",
-    grade: "76%"
-  },
-  {
-    degree: "Higher Secondary Examination - Class X",
-    institution: "Model H S School, Lakhnadon",
-    year: "2014-2015",
-    grade: "76%"
-  }
+  
 ];
 
 export default function Education() {
@@ -72,9 +67,9 @@ export default function Education() {
                       <Calendar className="w-4 h-4" />
                       <span data-testid={`text-year-${index}`}>{item.year}</span>
                     </div>
-                    <Badge variant="secondary" className="w-fit ml-auto" data-testid={`badge-grade-${index}`}>
+                    {/* <Badge variant="secondary" className="w-fit ml-auto" data-testid={`badge-grade-${index}`}>
                       {item.grade}
-                    </Badge>
+                    </Badge> */}
                   </div>
                 </div>
               </CardHeader>

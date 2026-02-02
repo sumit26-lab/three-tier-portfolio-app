@@ -1,0 +1,58 @@
+
+
+version: '3.8'
+
+services:
+  # --- DATABASE ---
+  db:
+    image: mysql:8.0
+    container_name: projcet_portfolio-db-1
+    restart: always
+    environment:
+      MYSQL_DATABASE: news_db
+      MYSQL_ROOT_PASSWORD: admin_password
+      MYSQL_ROOT_HOST: '%'
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./mysqlinit:/docker-entrypoint-initdb.d
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-padmin_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # --- BACKEND ---
+  backend:
+    build: ./backend
+    container_name: projcet_portfolio-backend-1
+    ports:
+      - "5000:5000"
+    environment:
+      DB_HOST: db
+      DB_USER: root
+      DB_PASSWORD: admin_password
+      DB_NAME: news_db
+      JWT_SECRET: 'fuew96LOTNk73mGA+IaEsJJkvwMwrk6/y3rPOcrYYWU='
+      RESEND_API_KEY: 're_Q94hn9fi_Furc4Wt8NkA4DvXhAf9v6SJD'
+      CLOUDINARY_CLOUD_NAME: 'dlgko9l50'
+      CLOUDINARY_API_KEY: '929949819293529'
+      CLOUDINARY_API_SECRET: 'FMAwLnvt0oLkkCqM_88cqmbh4lY'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # --- FRONTEND (NEW) ---
+  frontend:
+    build: 
+      context: .client
+      dockerfile: Dockerfile 
+    container_name: portfolio-frontend
+    ports:
+      - "3000:80" 
+    depends_on:
+      - backend
+volumes:
+  db_data:

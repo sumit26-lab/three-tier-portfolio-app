@@ -1,3 +1,5 @@
+
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,9 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Clock, Search, Filter, BookOpen, Tag, Plus } from "lucide-react";
+import { Search, Filter, Tag, Plus, ArrowLeft, Clock } from "lucide-react"; 
 import { useLocation } from "wouter";
 import type { Article } from "@shared/schema";
+import { apiFetch } from "@/lib/apiClient";
 
 export default function ArticlesList() {
   const [, navigate] = useLocation();
@@ -15,255 +18,186 @@ export default function ArticlesList() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedTag, setSelectedTag] = useState<string>("all");
 
-  // Fetch articles using the standard query pattern
+  const isAdmin = !!localStorage.getItem("token");
+
   const { data: articles = [], isLoading } = useQuery<Article[]>({
-    queryKey: ['/api/articles']
+    queryKey: ['/api/articles'],
+    queryFn: () => apiFetch<Article[]>('/api/articles'),
   });
 
-  // Fetch categories using the standard query pattern
-  const { data: categories = [] } = useQuery<string[]>({
-    queryKey: ['/api/categories']
-  });
+  const calculateReadTime = (content: string | undefined) => {
+    if (!content) return 1;
+    const words = content.trim().split(/\s+/).length;
+    return Math.max(1, Math.ceil(words / 200));
+  };
 
-  // Fetch tags using the standard query pattern
-  const { data: tags = [] } = useQuery<string[]>({
-    queryKey: ['/api/tags']
-  });
+  // --- TAGS EXTRACTOR (SAFE TYPES) ---
+  const allTags = Array.from(new Set(articles.flatMap(a => {
+    const rawTags = a.tags as any;
+    if (!rawTags) return [];
+    if (typeof rawTags === 'string') {
+      return rawTags.split(',').map((t: string) => t.trim()).filter(Boolean);
+    }
+    if (Array.isArray(rawTags)) {
+      return rawTags.map((t: any) => String(t).trim()).filter(Boolean);
+    }
+    return [];
+  })));
 
-  // Filter articles based on search and filters
+  const categories = Array.from(new Set(articles.map(a => a.category).filter(Boolean)));
+
+  // --- FILTERING LOGIC ---
   const filteredArticles = articles.filter(article => {
-    const matchesSearch = searchTerm === "" || 
-      article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      article.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      article.content.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const title = article.title?.toLowerCase() || "";
+    const summary = article.summary?.toLowerCase() || "";
+    const search = searchTerm.toLowerCase();
+
+    const matchesSearch = searchTerm === "" || title.includes(search) || summary.includes(search);
     const matchesCategory = selectedCategory === "all" || article.category === selectedCategory;
     
-    const matchesTag = selectedTag === "all" || article.tags.includes(selectedTag);
-    
+    let articleTags: string[] = [];
+    const rawTags = article.tags as any;
+    if (rawTags) {
+      if (typeof rawTags === 'string') {
+        articleTags = rawTags.split(',').map((t: string) => t.trim()).filter(Boolean);
+      } else if (Array.isArray(rawTags)) {
+        articleTags = rawTags.map((t: any) => String(t).trim()).filter(Boolean);
+      }
+    }
+    const matchesTag = selectedTag === "all" || articleTags.includes(selectedTag);
+
     return matchesSearch && matchesCategory && matchesTag;
   });
 
-  const handleArticleClick = (article: Article) => {
-    console.log('Navigating to article:', article.slug);
-    navigate(`/articles/${article.slug}`);
-  };
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-    console.log('Search term changed:', e.target.value);
-  };
-
-  const handleCategoryChange = (value: string) => {
-    setSelectedCategory(value);
-    console.log('Category filter changed:', value);
-  };
-
-  const handleTagChange = (value: string) => {
-    setSelectedTag(value);
-    console.log('Tag filter changed:', value);
-  };
-
-  const clearFilters = () => {
-    setSearchTerm("");
-    setSelectedCategory("all");
-    setSelectedTag("all");
-    console.log('Filters cleared');
-  };
-
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const getReadingTime = (content: string) => {
-    const wordsPerMinute = 200;
-    const words = content.split(' ').length;
-    const minutes = Math.ceil(words / wordsPerMinute);
-    return `${minutes} min read`;
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen py-16">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[...Array(6)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
-                <CardHeader>
-                  <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-muted rounded w-1/2"></div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="h-3 bg-muted rounded"></div>
-                    <div className="h-3 bg-muted rounded w-4/5"></div>
-                    <div className="h-3 bg-muted rounded w-3/5"></div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <div className="p-10 text-center text-muted-foreground font-serif italic">Loading insights...</div>;
 
   return (
-    <div className="min-h-screen py-16">
+    <div className="min-h-screen py-16 bg-background">
       <div className="max-w-6xl mx-auto px-4">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex-1">
-              <h1 className="text-4xl font-serif font-bold text-foreground mb-4" data-testid="text-articles-title">
-                Articles & Insights
-              </h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Explore my thoughts on economics, education, and professional development
-              </p>
-            </div>
-            <Button 
-              onClick={() => navigate('/admin/articles/new')}
-              className="hover-elevate"
-              data-testid="button-create-article"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Write Article
-            </Button>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => navigate('/')} 
+          className="mb-6 -ml-2 text-muted-foreground hover:text-primary gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to Home
+        </Button>
+
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
+          <div>
+            <h1 className="text-4xl font-serif font-bold mb-2 tracking-tight">Articles & Insights</h1>
+            <p className="text-muted-foreground text-lg">Exploring economics and professional excellence</p>
           </div>
+          {isAdmin && (
+            <Button onClick={() => navigate('/admin/articles/new')} className="hover-elevate">
+              <Plus className="w-4 h-4 mr-2" /> Write Article
+            </Button>
+          )}
         </div>
 
-        {/* Search and Filters */}
-        <div className="bg-card rounded-lg p-6 mb-8 border">
-          <div className="grid md:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search articles..."
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                  className="pl-10"
-                  data-testid="input-search-articles"
-                />
-              </div>
-            </div>
-            <div>
-              <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-                <SelectTrigger data-testid="select-category">
-                  <Filter className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Select value={selectedTag} onValueChange={handleTagChange}>
-                <SelectTrigger data-testid="select-tag">
-                  <Tag className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Tag" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Tags</SelectItem>
-                  {tags.map((tag) => (
-                    <SelectItem key={tag} value={tag}>
-                      {tag}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        {/* Filters Section */}
+        <div className="bg-card rounded-xl p-6 mb-12 border shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="md:col-span-2 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search articles..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="pl-10 focus-visible:ring-primary"
+            />
           </div>
           
-          {(searchTerm || selectedCategory !== "all" || selectedTag !== "all") && (
-            <div className="mt-4 flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Showing {filteredArticles.length} of {articles.length} articles
-              </p>
-              <Button variant="outline" size="sm" onClick={clearFilters} data-testid="button-clear-filters">
-                Clear Filters
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger>
+              <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.map(cat => <SelectItem key={cat} value={cat!}>{cat}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          <Select value={selectedTag} onValueChange={setSelectedTag}>
+            <SelectTrigger>
+              <Tag className="w-4 h-4 mr-2 text-muted-foreground" />
+              <SelectValue placeholder="Filter by Tag" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Tags</SelectItem>
+              {allTags.map(tag => <SelectItem key={tag} value={tag}>{tag}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Article Grid */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filteredArticles.length > 0 ? (
+            filteredArticles.map((article) => {
+              const rawTags = article.tags as any;
+              const tagsToShow = typeof rawTags === 'string' 
+                ? rawTags.split(',').map((t: string) => t.trim()).filter(Boolean)
+                : (Array.isArray(rawTags) ? rawTags : []);
+
+              return (
+                <Card key={article.id} className="flex flex-col h-full overflow-hidden transition-all border-muted/50 hover:shadow-xl group bg-card">
+                  <div 
+                    className="h-48 bg-muted cursor-pointer relative overflow-hidden"
+                    onClick={() => navigate(`/articles/${article.id}`)}
+                  >
+                    {article.coverImage && (
+                      <img 
+                        src={article.coverImage} 
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                        alt={article.title}
+                      />
+                    )}
+                    <div className="absolute top-3 left-3 flex gap-2">
+                      <Badge className="bg-background/90 backdrop-blur-sm text-foreground border-none">
+                        {article.category}
+                      </Badge>
+                      <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-sm border-none flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {calculateReadTime(article.content)} min
+                      </Badge>
+                    </div>
+                  </div>
+                  <CardHeader>
+                    <CardTitle 
+                      className="text-xl font-serif leading-tight cursor-pointer hover:text-primary line-clamp-2 transition-colors"
+                      onClick={() => navigate(`/articles/${article.id}`)}
+                    >
+                      {article.title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-grow space-y-4">
+                    <p className="text-muted-foreground text-sm line-clamp-3 leading-relaxed">{article.summary}</p>
+                    
+                    <div className="flex flex-wrap gap-1.5 pt-2">
+                      {tagsToShow.map((tag: string) => (
+                        <span key={tag} className="text-[10px] font-semibold bg-secondary text-secondary-foreground px-2 py-0.5 rounded-md uppercase tracking-wider">
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
+          ) : (
+            <div className="col-span-full text-center py-20 bg-muted/20 rounded-xl border-2 border-dashed border-muted">
+              <p className="text-muted-foreground mb-4 font-medium">No articles found matching your criteria.</p>
+              {/* FIXED RESET BUTTON WITHOUT VARIANT="LINK" ERROR */}
+              <Button 
+                variant="outline" 
+                className="text-primary hover:bg-primary hover:text-primary-foreground"
+                onClick={() => {setSearchTerm(""); setSelectedCategory("all"); setSelectedTag("all");}}
+              >
+                Reset All Filters
               </Button>
             </div>
           )}
         </div>
-
-        {/* Articles Grid */}
-        {filteredArticles.length === 0 ? (
-          <div className="text-center py-12">
-            <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-foreground mb-2">No articles found</h3>
-            <p className="text-muted-foreground">
-              {searchTerm || selectedCategory !== "all" || selectedTag !== "all"
-                ? "Try adjusting your search or filters"
-                : "Check back later for new content"}
-            </p>
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredArticles.map((article, index) => (
-              <Card 
-                key={article.id} 
-                className="hover-elevate cursor-pointer transition-all duration-200 h-full flex flex-col"
-                onClick={() => handleArticleClick(article)}
-                data-testid={`card-article-${index}`}
-              >
-                <CardHeader className="flex-shrink-0">
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <Badge variant="secondary" className="text-xs" data-testid={`badge-category-${index}`}>
-                      {article.category}
-                    </Badge>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="w-3 h-3" />
-                      <span data-testid={`text-reading-time-${index}`}>
-                        {getReadingTime(article.content)}
-                      </span>
-                    </div>
-                  </div>
-                  <CardTitle className="text-xl leading-tight mb-2" data-testid={`text-article-title-${index}`}>
-                    {article.title}
-                  </CardTitle>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CalendarDays className="w-4 h-4" />
-                    <span data-testid={`text-article-date-${index}`}>
-                      {formatDate(article.createdAt)}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex-grow flex flex-col">
-                  <p className="text-muted-foreground leading-relaxed mb-4 flex-grow" data-testid={`text-article-summary-${index}`}>
-                    {article.summary}
-                  </p>
-                  
-                  {article.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-auto" data-testid={`tags-${index}`}>
-                      {article.tags.slice(0, 3).map((tag, tagIndex) => (
-                        <Badge key={tagIndex} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                      {article.tags.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{article.tags.length - 3} more
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
